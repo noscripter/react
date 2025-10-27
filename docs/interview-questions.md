@@ -48,6 +48,8 @@ function performUnitOfWork(unitOfWork: Fiber): void {
 
 Once the render phase finishes building the effect list, the commit phase runs synchronously against the host environment (DOM, native) to apply mutations and run lifecycle effects. Because each root has its own fiber tree and pending lanes, multiple roots can be rendered independently in the same event loop while still sharing scheduling heuristics.
 
+> 📚 Looking to revisit linked-list mechanics or double buffering? See `docs/linked-structures-and-buffering.md` for algorithm primers, LeetCode practice, and additional prompts tailored to this topic.
+
 ## 2. What problem do lane-based priorities solve and how do transitions fit into the scheduling model?
 
 - Why it matters: React's concurrency story is driven by granular priorities that allow urgent updates to preempt rendering work.
