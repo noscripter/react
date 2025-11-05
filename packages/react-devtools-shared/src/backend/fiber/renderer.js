@@ -301,6 +301,7 @@ type SuspenseNode = {
   rects: null | Array<Rect>, // The bounding rects of content children.
   suspendedBy: Map<ReactIOInfo, Set<DevToolsInstance>>, // Tracks which data we're suspended by and the children that suspend it.
   environments: Map<string, number>, // Tracks the Flight environment names that suspended this. I.e. if the server blocked this.
+  endTime: number, // Track a short cut to the maximum end time value within the suspendedBy set.
   // Track whether any of the items in suspendedBy are unique this this Suspense boundaries or if they're all
   // also in the parent sets. This determine whether this could contribute in the loading sequence.
   hasUniqueSuspenders: boolean,
@@ -330,6 +331,7 @@ function createSuspenseNode(
     rects: null,
     suspendedBy: new Map(),
     environments: new Map(),
+    endTime: 0,
     hasUniqueSuspenders: false,
     hasUnknownSuspenders: false,
   });
@@ -1510,6 +1512,11 @@ export function attach(
       throw Error('Cannot modify filter preferences while profiling');
     }
 
+    const previousForcedFallbacks =
+      forceFallbackForFibers.size > 0 ? new Set(forceFallbackForFibers) : null;
+    const previousForcedErrors =
+      forceErrorForFibers.size > 0 ? new Map(forceErrorForFibers) : null;
+
     // Recursively unmount all roots.
     hook.getFiberRoots(rendererID).forEach(root => {
       const rootInstance = rootToFiberInstanceMap.get(root);
@@ -1529,6 +1536,41 @@ export function attach(
 
     // Reset pseudo counters so that new path selections will be persisted.
     rootDisplayNameCounter.clear();
+
+    // We just cleared all the forced states. Schedule updates on the affected Fibers
+    // so that we get their initial states again according to the new filters.
+    if (typeof scheduleUpdate === 'function') {
+      if (previousForcedFallbacks !== null) {
+        // eslint-disable-next-line no-for-of-loops/no-for-of-loops
+        for (const fiber of previousForcedFallbacks) {
+          if (typeof scheduleRetry === 'function') {
+            scheduleRetry(fiber);
+          } else {
+            scheduleUpdate(fiber);
+          }
+        }
+      }
+      if (
+        previousForcedErrors !== null &&
+        typeof setErrorHandler === 'function'
+      ) {
+        // Unlike for Suspense, disabling the forced error state requires setting
+        // the status to false first. `shouldErrorFiberAccordingToMap` will clear
+        // the Fibers later.
+        setErrorHandler(shouldErrorFiberAccordingToMap);
+        // eslint-disable-next-line no-for-of-loops/no-for-of-loops
+        for (const [fiber, shouldError] of previousForcedErrors) {
+          forceErrorForFibers.set(fiber, false);
+          if (shouldError) {
+            if (typeof scheduleRetry === 'function') {
+              scheduleRetry(fiber);
+            } else {
+              scheduleUpdate(fiber);
+            }
+          }
+        }
+      }
+    }
 
     // Recursively re-mount all roots with new filter criteria applied.
     hook.getFiberRoots(rendererID).forEach(root => {
@@ -2156,8 +2198,8 @@ export function attach(
         // Regular operations
         pendingOperations.length +
         // All suspender changes are batched in a single message.
-        // [SUSPENSE_TREE_OPERATION_SUSPENDERS, suspenderChangesLength, ...[id, hasUniqueSuspenders, isSuspended]]
-        (numSuspenderChanges > 0 ? 2 + numSuspenderChanges * 3 : 0),
+        // [SUSPENSE_TREE_OPERATION_SUSPENDERS, suspenderChangesLength, ...[id, hasUniqueSuspenders, endTime, isSuspended]]
+        (numSuspenderChanges > 0 ? 2 + numSuspenderChanges * 4 : 0),
     );
 
     // Identify which renderer this update is coming from.
@@ -2242,6 +2284,7 @@ export function attach(
         }
         operations[i++] = fiberIdWithChanges;
         operations[i++] = suspense.hasUniqueSuspenders ? 1 : 0;
+        operations[i++] = Math.round(suspense.endTime * 1000);
         const instance = suspense.instance;
         const isSuspended =
           // TODO: Track if other SuspenseNode like SuspenseList rows are suspended.
@@ -2912,12 +2955,19 @@ export function attach(
     // like owner instances to link down into the tree.
     if (!suspendedBySet.has(parentInstance)) {
       suspendedBySet.add(parentInstance);
+      const virtualEndTime = getVirtualEndTime(ioInfo);
       if (
         !parentSuspenseNode.hasUniqueSuspenders &&
         !ioExistsInSuspenseAncestor(parentSuspenseNode, ioInfo)
       ) {
         // This didn't exist in the parent before, so let's mark this boundary as having a unique suspender.
         parentSuspenseNode.hasUniqueSuspenders = true;
+        if (parentSuspenseNode.endTime < virtualEndTime) {
+          parentSuspenseNode.endTime = virtualEndTime;
+        }
+        recordSuspenseSuspenders(parentSuspenseNode);
+      } else if (parentSuspenseNode.endTime < virtualEndTime) {
+        parentSuspenseNode.endTime = virtualEndTime;
         recordSuspenseSuspenders(parentSuspenseNode);
       }
     }
@@ -2979,6 +3029,26 @@ export function attach(
     }
   }
 
+  function getVirtualEndTime(ioInfo: ReactIOInfo): number {
+    if (ioInfo.env != null) {
+      // Sort client side content first so that scripts and streams don't
+      // cover up the effect of server time.
+      return ioInfo.end + 1000000;
+    }
+    return ioInfo.end;
+  }
+
+  function computeEndTime(suspenseNode: SuspenseNode) {
+    let maxEndTime = 0;
+    suspenseNode.suspendedBy.forEach((set, ioInfo) => {
+      const virtualEndTime = getVirtualEndTime(ioInfo);
+      if (virtualEndTime > maxEndTime) {
+        maxEndTime = virtualEndTime;
+      }
+    });
+    return maxEndTime;
+  }
+
   function removePreviousSuspendedBy(
     instance: DevToolsInstance,
     previousSuspendedBy: null | Array<ReactAsyncInfo>,
@@ -2996,6 +3066,7 @@ export function attach(
     if (previousSuspendedBy !== null && suspenseNode !== null) {
       const nextSuspendedBy = instance.suspendedBy;
       let changedEnvironment = false;
+      let mayHaveChangedEndTime = false;
       for (let i = 0; i < previousSuspendedBy.length; i++) {
         const asyncInfo = previousSuspendedBy[i];
         if (
@@ -3008,6 +3079,11 @@ export function attach(
           // Let's remove it from the parent SuspenseNode.
           const ioInfo = asyncInfo.awaited;
           const suspendedBySet = suspenseNode.suspendedBy.get(ioInfo);
+
+          if (suspenseNode.endTime === getVirtualEndTime(ioInfo)) {
+            // This may be the only remaining entry at this end time. Recompute the end time.
+            mayHaveChangedEndTime = true;
+          }
 
           if (
             suspendedBySet === undefined ||
@@ -3066,7 +3142,11 @@ export function attach(
           }
         }
       }
-      if (changedEnvironment) {
+      const newEndTime = mayHaveChangedEndTime
+        ? computeEndTime(suspenseNode)
+        : suspenseNode.endTime;
+      if (changedEnvironment || newEndTime !== suspenseNode.endTime) {
+        suspenseNode.endTime = newEndTime;
         recordSuspenseSuspenders(suspenseNode);
       }
     }
