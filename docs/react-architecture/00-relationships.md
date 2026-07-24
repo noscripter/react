@@ -166,6 +166,7 @@ sequenceDiagram
 | Commit | finishedWork 与 flags | host 变化、refs、layout/passive effects | 重新协调整棵 Element 树 |
 | React Client | 客户端导出、DOM root、Flight 解码 | 客户端模型与交互运行时 | 自动提供服务器框架 |
 | React Server | server 条件导出、Fizz/Flight 请求 | HTML 流或 Flight 模型流 | 浏览器 hydration 与 DOM 事件 |
+| React Server Components | server module graph、数据与 Client/Server References | 归约后的 Flight React 模型 | 直接生成 HTML、路由、鉴权与客户端交互状态 |
 | Renderer | Fiber commit 调用与 host config | host instance 的 create/update/remove | 组件身份与 Lane 选择 |
 | React DevTools | renderer 注入、commit/unmount 事件 | 可检查的组件树与按需详情 | 改变应用正常协调语义 |
 | Profiler | render/commit 插桩数据 | duration、commit 与 timeline 数据 | 直接给出业务瓶颈根因 |
@@ -184,6 +185,8 @@ flowchart LR
     CLI["packages/react-client/src"] --> FC["ReactFlightClient.js"]
     SRV["packages/react-server/src"] --> FS["ReactFlightServer.js"]
     SRV --> FZ["ReactFizzServer.js"]
+    RSC["packages/react-server-dom-*"] --> REF["Client/Server References<br/>bundler manifests"]
+    REF --> FS
     CMP["compiler/packages/babel-plugin-react-compiler/src"] --> PL["Entrypoint/Pipeline.ts"]
     RDR["renderer host config"] --> DOMCFG["react-dom-bindings/.../ReactFiberConfigDOM.js"]
     DT["react-devtools-shared"] --> HK["hook.js / backend / bridge / store"]

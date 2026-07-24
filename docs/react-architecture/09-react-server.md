@@ -1,5 +1,7 @@
 # React Server：服务器条件导出、Fizz 与 Flight
 
+React Server Components 的模块图、执行、序列化和引用机制另见[《React Server Components》](13-react-server-components.md)。
+
 ## 先消除名称歧义
 
 “React Server”不是单一 renderer。当前仓库中的相关层次包括：
@@ -165,4 +167,3 @@ Flight 与 Fizz 都有 task/thenable/ping 机制，用于等待异步结果并�
 ## 一句话总结
 
 React Server 提供服务器能力面：Fizz 把 tree 变成 HTML 流，Flight 把 Server Components 变成模型流；网络、模块图、安全和部署组合仍由框架负责。
-

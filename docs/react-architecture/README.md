@@ -18,6 +18,7 @@
 3. 客户端与服务器执行面
    - [React Client](08-react-client.md)
    - [React Server](09-react-server.md)
+   - [React Server Components](13-react-server-components.md)
 4. 宿主与可观测性
    - [Renderer](10-renderer.md)
    - [React DevTools](11-react-devtools.md)
@@ -59,5 +60,6 @@
 - 并非所有工作都经过 Scheduler；同步 Lane 可以直接 flush。
 - Commit 不是名为 “commiter” 的独立包，也不是可回滚数据库事务。
 - `react-client` 与 `react-server` 包主要承载 Flight/Fizz 内核；“Client Component”和“Server Component”是执行与模块图边界，不能只按包名理解。
+- `"use server"` 声明 Server Reference，不是 Server Component 标记；RSC 模型由 Flight 传输，HTML 由 Fizz 生成。
 - Renderer 是 Reconciler 与具体 host 之间的能力适配层；React DOM 只是其中一种 renderer。
 - DevTools 通过全局 hook、backend、bridge 和 frontend 观察 renderer；Profiler 的计时数据来自运行时 instrumentation（插桩）。

@@ -2,7 +2,7 @@
 
 > 本文是当前仓库的中文技术基线：解释 React 为什么采用这些架构、各子系统怎样协作、关键边界在哪里，以及哪些内容属于已实现能力、实验能力或演进计划。它不是对外 API 教程，也不是官方未来版本路线图。
 
-九个核心概念以及 Renderer、React DevTools、Profiler 的独立深度说明与关系图，见 [`docs/react-architecture/`](docs/react-architecture/README.md)。
+九个核心概念以及 Renderer、React DevTools、Profiler、React Server Components 的独立深度说明与关系图，见 [`docs/react-architecture/`](docs/react-architecture/README.md)。
 
 ## 1. 文档基线与阅读约定
 

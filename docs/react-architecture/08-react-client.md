@@ -1,5 +1,7 @@
 # React Client：客户端运行时与 Flight 消费端
 
+Flight Client 如何消费 React Server Components 模型，另见[《React Server Components》](13-react-server-components.md)。
+
 ## 先消除名称歧义
 
 “React Client”在仓库中至少有三种相关含义：
@@ -164,4 +166,3 @@ Flight Client 解码协议，React DOM 操作 DOM。Flight Client 也可运行�
 ## 一句话总结
 
 React Client 既包括浏览器中的 React/DOM 运行时，也包括 Flight 模型消费端；前者管理交互与宿主，后者恢复服务器模型，两者由 renderer 和框架组合。
-
