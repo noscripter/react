@@ -2,14 +2,16 @@
 
 > 本文是当前仓库的中文技术基线：解释 React 为什么采用这些架构、各子系统怎样协作、关键边界在哪里，以及哪些内容属于已实现能力、实验能力或演进计划。它不是对外 API 教程，也不是官方未来版本路线图。
 
+九个核心概念以及 Renderer、React DevTools、Profiler 的独立深度说明与关系图，见 [`docs/react-architecture/`](docs/react-architecture/README.md)。
+
 ## 1. 文档基线与阅读约定
 
 | 项目 | 基线 |
 | --- | --- |
 | 仓库 | React monorepo |
-| 分支 | main |
-| 源码提交 | b740af2510de1e19fcb399abb862af26ff95ac80 |
-| 文档日期 | 2026-07-20 |
+| 分支 | docs/architecture |
+| 源码提交 | a20b0c759b7927b38125811c10472720d39f9c21 |
+| 文档日期 | 2026-07-24 |
 | 核心包版本 | react / react-dom 19.3.0；react-reconciler 0.34.0；scheduler 0.28.0 |
 | 包管理器 | Yarn 1.22.22 |
 | 证据范围 | 当前 checkout 的源码、测试、CI、设计文档和发布脚本；不等同于生产流量或长期 soak 证据 |
